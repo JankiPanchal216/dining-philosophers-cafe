@@ -1,7 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import PageHeader from '../components/PageHeader';
-import ProblemRecap from '../components/ProblemRecap';
-import StrategySelector from '../components/StrategySelector';
 import DiningTableSimulation from '../components/DiningTableSimulation';
 import ThreadMutexMatrix from '../components/ThreadMutexMatrix';
 import ProofPanel from '../components/ProofPanel';
@@ -9,189 +7,411 @@ import ComparisonSection from '../components/ComparisonSection';
 import EventLog from '../components/EventLog';
 import Footer from '../components/Footer';
 
-export default function SolutionLab() {
-  const [selectedStrategy, setSelectedStrategy] = useState('resource-ordering');
-  const [simulationState, setSimulationState] = useState('deadlock'); // 'deadlock' or 'safe'
-  const [isRunning, setIsRunning] = useState(false);
-  const [step, setStep] = useState(0);
+/**
+ * Deterministic step calculator for Solution Lab.
+ * Single source of truth for both scenarios:
+ * - 'without-fix': Naive Greedy Protocol (Deadlock Cycle)
+ * - 'with-fix': Havender Resource Ordering (Safe State)
+ */
+function calculateSolutionStep(mode, stepNumber) {
+  const maxStep = mode === 'without-fix' ? 3 : 6;
+  const step = Math.min(Math.max(0, stepNumber), maxStep);
 
-  // Initial problem state (Deadlock)
-  const initialPhilosophers = [
-    { id: 1, state: 'BLOCKED', forks: [1], waitsFor: 2 },
-    { id: 2, state: 'BLOCKED', forks: [2], waitsFor: 3 },
-    { id: 3, state: 'BLOCKED', forks: [3], waitsFor: 4 },
-    { id: 4, state: 'BLOCKED', forks: [4], waitsFor: 5 },
-    { id: 5, state: 'BLOCKED', forks: [5], waitsFor: 1 },
-  ];
+  if (mode === 'without-fix') {
+    // Mode: Without Fix (Deadlock demonstration)
+    if (step === 0) {
+      return {
+        step: 0,
+        maxStep: 3,
+        simulationState: 'deadlock',
+        statusText: '🟡 Ready (Naive Greedy Protocol)',
+        philosophers: [1, 2, 3, 4, 5].map(id => ({ id, state: 'THINKING', forks: [], waitsFor: null })),
+        forks: [1, 2, 3, 4, 5].map(id => ({ id, owner: null })),
+        events: [
+          { time: '00:00.00', message: 'Initialized naive protocol: Greedy Left-First acquisition', type: 'normal' }
+        ]
+      };
+    }
+    if (step === 1) {
+      return {
+        step: 1,
+        maxStep: 3,
+        simulationState: 'deadlock',
+        statusText: '🟡 Contention: All Hungry',
+        philosophers: [1, 2, 3, 4, 5].map(id => ({ id, state: 'HUNGRY', forks: [], waitsFor: null })),
+        forks: [1, 2, 3, 4, 5].map(id => ({ id, owner: null })),
+        events: [
+          { time: '00:00.00', message: 'Initialized naive protocol: Greedy Left-First acquisition', type: 'normal' },
+          { time: '00:00.50', message: 'All philosophers became HUNGRY and requested left-hand fork', type: 'normal' }
+        ]
+      };
+    }
+    if (step === 2) {
+      return {
+        step: 2,
+        maxStep: 3,
+        simulationState: 'deadlock',
+        statusText: '🟠 Hold & Wait Condition Met',
+        philosophers: [1, 2, 3, 4, 5].map(id => ({ id, state: 'WAITING', forks: [id], waitsFor: null })),
+        forks: [1, 2, 3, 4, 5].map(id => ({ id, owner: id })),
+        events: [
+          { time: '00:00.00', message: 'Initialized naive protocol: Greedy Left-First acquisition', type: 'normal' },
+          { time: '00:00.50', message: 'All philosophers became HUNGRY and requested left-hand fork', type: 'normal' },
+          { time: '00:01.00', message: 'All philosophers acquired left fork (F1..F5 held)', type: 'normal' }
+        ]
+      };
+    }
+    // step === 3 (Deadlocked)
+    return {
+      step: 3,
+      maxStep: 3,
+      simulationState: 'deadlock',
+      statusText: '🔴 DEADLOCK DETECTED',
+      philosophers: [
+        { id: 1, state: 'DEADLOCKED', forks: [1], waitsFor: 5 },
+        { id: 2, state: 'DEADLOCKED', forks: [2], waitsFor: 1 },
+        { id: 3, state: 'DEADLOCKED', forks: [3], waitsFor: 2 },
+        { id: 4, state: 'DEADLOCKED', forks: [4], waitsFor: 3 },
+        { id: 5, state: 'DEADLOCKED', forks: [5], waitsFor: 4 },
+      ],
+      forks: [
+        { id: 1, owner: 1 },
+        { id: 2, owner: 2 },
+        { id: 3, owner: 3 },
+        { id: 4, owner: 4 },
+        { id: 5, owner: 5 },
+      ],
+      events: [
+        { time: '00:00.00', message: 'Initialized naive protocol: Greedy Left-First acquisition', type: 'normal' },
+        { time: '00:00.50', message: 'All philosophers became HUNGRY and requested left-hand fork', type: 'normal' },
+        { time: '00:01.00', message: 'All philosophers acquired left fork (F1..F5 held)', type: 'normal' },
+        { time: '00:01.50', message: 'All philosophers waiting for right fork held by neighbor', type: 'error' },
+        { time: '00:02.00', message: 'DEADLOCK DETECTED: Cycle P1 → P5 → P4 → P3 → P2 → P1', type: 'error' }
+      ]
+    };
+  }
 
-  const initialForks = [
-    { id: 1, owner: 1 },
-    { id: 2, owner: 2 },
-    { id: 3, owner: 3 },
-    { id: 4, owner: 4 },
-    { id: 5, owner: 5 },
-  ];
-
-  const initialEvents = [
-    { time: '00:00.00', message: 'Simulation initialized with greedy acquisition' },
-    { time: '00:00.50', message: 'All philosophers acquired left fork' },
-    { time: '00:01.00', message: 'All philosophers waiting for right fork', type: 'error' },
-    { time: '00:01.50', message: 'DEADLOCK DETECTED', type: 'error' }
-  ];
-
-  const [philosophers, setPhilosophers] = useState(initialPhilosophers);
-  const [forks, setForks] = useState(initialForks);
-  const [events, setEvents] = useState(initialEvents);
-
-  const resetSimulation = useCallback(() => {
-    setIsRunning(false);
-    setStep(0);
-    setSimulationState('deadlock');
-    setPhilosophers(initialPhilosophers);
-    setForks(initialForks);
-    setEvents(initialEvents);
-  }, []);
-
-  const addEvent = (msg, type = 'normal') => {
-    setEvents(prev => [...prev, { time: `00:0${2 + Math.floor(Math.random() * 5)}.${Math.floor(Math.random() * 99)}`, message: msg, type }]);
-  };
-
-  const playSimulation = useCallback(() => {
-    if (selectedStrategy === 'resource-ordering') {
-      setSimulationState('safe');
-      setIsRunning(true);
-      setStep(1);
-      
-      // Step 1: Reset to initial safe state applying resource ordering
-      setPhilosophers([
-        { id: 1, state: 'THINKING', forks: [], waitsFor: null },
-        { id: 2, state: 'THINKING', forks: [], waitsFor: null },
+  // Mode: With Havender Ordering
+  if (step === 0) {
+    return {
+      step: 0,
+      maxStep: 6,
+      simulationState: 'safe',
+      statusText: '🟢 Ready (Havender Total Order)',
+      philosophers: [1, 2, 3, 4, 5].map(id => ({ id, state: 'THINKING', forks: [], waitsFor: null })),
+      forks: [1, 2, 3, 4, 5].map(id => ({ id, owner: null })),
+      events: [
+        { time: '00:00.00', message: 'Applied Havender Resource Ordering (Flow < Fhigh)', type: 'normal' },
+        { time: '00:00.20', message: 'All held forks released. Total ordering constraint enforced.', type: 'success' }
+      ]
+    };
+  }
+  if (step === 1) {
+    return {
+      step: 1,
+      maxStep: 6,
+      simulationState: 'safe',
+      statusText: '🟢 Running: P3 Eating',
+      philosophers: [
+        { id: 1, state: 'HUNGRY', forks: [1], waitsFor: 5 },
+        { id: 2, state: 'WAITING', forks: [], waitsFor: 1 },
+        { id: 3, state: 'EATING', forks: [2, 3], waitsFor: null },
+        { id: 4, state: 'THINKING', forks: [], waitsFor: null },
+        { id: 5, state: 'THINKING', forks: [], waitsFor: null },
+      ],
+      forks: [
+        { id: 1, owner: 1 },
+        { id: 2, owner: 3 },
+        { id: 3, owner: 3 },
+        { id: 4, owner: null },
+        { id: 5, owner: null },
+      ],
+      events: [
+        { time: '00:00.00', message: 'Applied Havender Resource Ordering (Flow < Fhigh)', type: 'normal' },
+        { time: '00:00.20', message: 'All held forks released. Total ordering constraint enforced.', type: 'success' },
+        { time: '00:01.50', message: 'P1 acquired F1. P2 contends for F1 first (F1 < F2) and blocks.', type: 'normal' },
+        { time: '00:01.70', message: 'F2 remains FREE! P3 acquired F2 & F3 and entered Critical Section (EATING).', type: 'success' }
+      ]
+    };
+  }
+  if (step === 2) {
+    return {
+      step: 2,
+      maxStep: 6,
+      simulationState: 'safe',
+      statusText: '🟢 Running: P4 Eating',
+      philosophers: [
+        { id: 1, state: 'HUNGRY', forks: [1], waitsFor: 5 },
+        { id: 2, state: 'WAITING', forks: [], waitsFor: 1 },
+        { id: 3, state: 'THINKING', forks: [], waitsFor: null },
+        { id: 4, state: 'EATING', forks: [3, 4], waitsFor: null },
+        { id: 5, state: 'THINKING', forks: [], waitsFor: null },
+      ],
+      forks: [
+        { id: 1, owner: 1 },
+        { id: 2, owner: null },
+        { id: 3, owner: 4 },
+        { id: 4, owner: 4 },
+        { id: 5, owner: null },
+      ],
+      events: [
+        { time: '00:00.00', message: 'Applied Havender Resource Ordering (Flow < Fhigh)', type: 'normal' },
+        { time: '00:00.20', message: 'All held forks released. Total ordering constraint enforced.', type: 'success' },
+        { time: '00:01.50', message: 'P1 acquired F1. P2 contends for F1 first (F1 < F2) and blocks.', type: 'normal' },
+        { time: '00:01.70', message: 'F2 remains FREE! P3 acquired F2 & F3 and entered Critical Section (EATING).', type: 'success' },
+        { time: '00:03.00', message: 'P3 finished eating, released F2 & F3.', type: 'normal' },
+        { time: '00:03.20', message: 'P4 acquired F3 & F4 and entered Critical Section (EATING).', type: 'success' }
+      ]
+    };
+  }
+  if (step === 3) {
+    return {
+      step: 3,
+      maxStep: 6,
+      simulationState: 'safe',
+      statusText: '🟢 Running: P5 Eating',
+      philosophers: [
+        { id: 1, state: 'HUNGRY', forks: [1], waitsFor: 5 },
+        { id: 2, state: 'WAITING', forks: [], waitsFor: 1 },
+        { id: 3, state: 'THINKING', forks: [], waitsFor: null },
+        { id: 4, state: 'THINKING', forks: [], waitsFor: null },
+        { id: 5, state: 'EATING', forks: [4, 5], waitsFor: null },
+      ],
+      forks: [
+        { id: 1, owner: 1 },
+        { id: 2, owner: null },
+        { id: 3, owner: null },
+        { id: 4, owner: 5 },
+        { id: 5, owner: 5 },
+      ],
+      events: [
+        { time: '00:00.00', message: 'Applied Havender Resource Ordering (Flow < Fhigh)', type: 'normal' },
+        { time: '00:00.20', message: 'All held forks released. Total ordering constraint enforced.', type: 'success' },
+        { time: '00:01.50', message: 'P1 acquired F1. P2 contends for F1 first (F1 < F2) and blocks.', type: 'normal' },
+        { time: '00:01.70', message: 'F2 remains FREE! P3 acquired F2 & F3 and entered Critical Section (EATING).', type: 'success' },
+        { time: '00:03.00', message: 'P3 finished eating, released F2 & F3.', type: 'normal' },
+        { time: '00:03.20', message: 'P4 acquired F3 & F4 and entered Critical Section (EATING).', type: 'success' },
+        { time: '00:04.50', message: 'P4 released F3 & F4. P5 acquired F4 & F5, eating.', type: 'success' }
+      ]
+    };
+  }
+  if (step === 4) {
+    return {
+      step: 4,
+      maxStep: 6,
+      simulationState: 'safe',
+      statusText: '🟢 Running: P1 Eating',
+      philosophers: [
+        { id: 1, state: 'EATING', forks: [1, 5], waitsFor: null },
+        { id: 2, state: 'WAITING', forks: [], waitsFor: 1 },
         { id: 3, state: 'THINKING', forks: [], waitsFor: null },
         { id: 4, state: 'THINKING', forks: [], waitsFor: null },
         { id: 5, state: 'THINKING', forks: [], waitsFor: null },
-      ]);
-      setForks([
-        { id: 1, owner: null },
+      ],
+      forks: [
+        { id: 1, owner: 1 },
         { id: 2, owner: null },
         { id: 3, owner: null },
         { id: 4, owner: null },
+        { id: 5, owner: 1 },
+      ],
+      events: [
+        { time: '00:00.00', message: 'Applied Havender Resource Ordering (Flow < Fhigh)', type: 'normal' },
+        { time: '00:00.20', message: 'All held forks released. Total ordering constraint enforced.', type: 'success' },
+        { time: '00:01.50', message: 'P1 acquired F1. P2 contends for F1 first (F1 < F2) and blocks.', type: 'normal' },
+        { time: '00:01.70', message: 'F2 remains FREE! P3 acquired F2 & F3 and entered Critical Section (EATING).', type: 'success' },
+        { time: '00:03.00', message: 'P3 finished eating, released F2 & F3.', type: 'normal' },
+        { time: '00:03.20', message: 'P4 acquired F3 & F4 and entered Critical Section (EATING).', type: 'success' },
+        { time: '00:04.50', message: 'P4 released F3 & F4. P5 acquired F4 & F5, eating.', type: 'success' },
+        { time: '00:06.00', message: 'P5 released F4 & F5. P1 acquired F5, now EATING with F1 & F5.', type: 'success' }
+      ]
+    };
+  }
+  if (step === 5) {
+    return {
+      step: 5,
+      maxStep: 6,
+      simulationState: 'safe',
+      statusText: '🟢 Running: P2 Eating',
+      philosophers: [
+        { id: 1, state: 'THINKING', forks: [], waitsFor: null },
+        { id: 2, state: 'EATING', forks: [1, 2], waitsFor: null },
+        { id: 3, state: 'THINKING', forks: [], waitsFor: null },
+        { id: 4, state: 'THINKING', forks: [], waitsFor: null },
+        { id: 5, state: 'THINKING', forks: [], waitsFor: null },
+      ],
+      forks: [
+        { id: 1, owner: 2 },
+        { id: 2, owner: 2 },
+        { id: 3, owner: null },
+        { id: 4, owner: null },
         { id: 5, owner: null },
-      ]);
-      
-      setEvents([
-        { time: '00:00.00', message: 'Applied Resource Ordering (Havender)' },
-        { time: '00:00.20', message: 'All resources freed' }
-      ]);
-    }
-  }, [selectedStrategy]);
+      ],
+      events: [
+        { time: '00:00.00', message: 'Applied Havender Resource Ordering (Flow < Fhigh)', type: 'normal' },
+        { time: '00:00.20', message: 'All held forks released. Total ordering constraint enforced.', type: 'success' },
+        { time: '00:01.50', message: 'P1 acquired F1. P2 contends for F1 first (F1 < F2) and blocks.', type: 'normal' },
+        { time: '00:01.70', message: 'F2 remains FREE! P3 acquired F2 & F3 and entered Critical Section (EATING).', type: 'success' },
+        { time: '00:03.00', message: 'P3 finished eating, released F2 & F3.', type: 'normal' },
+        { time: '00:03.20', message: 'P4 acquired F3 & F4 and entered Critical Section (EATING).', type: 'success' },
+        { time: '00:04.50', message: 'P4 released F3 & F4. P5 acquired F4 & F5, eating.', type: 'success' },
+        { time: '00:06.00', message: 'P5 released F4 & F5. P1 acquired F5, now EATING with F1 & F5.', type: 'success' },
+        { time: '00:07.50', message: 'P1 finished eating, released F1 & F5.', type: 'normal' },
+        { time: '00:07.70', message: 'P2 unblocked! Acquired F1 & F2 and entered Critical Section (EATING).', type: 'success' }
+      ]
+    };
+  }
+  // step === 6
+  return {
+    step: 6,
+    maxStep: 6,
+    simulationState: 'safe',
+    statusText: '🟢 Safe State (Havender Order) | Deadlocks: 0',
+    philosophers: [1, 2, 3, 4, 5].map(id => ({ id, state: 'THINKING', forks: [], waitsFor: null })),
+    forks: [1, 2, 3, 4, 5].map(id => ({ id, owner: null })),
+    events: [
+      { time: '00:00.00', message: 'Applied Havender Resource Ordering (Flow < Fhigh)', type: 'normal' },
+      { time: '00:00.20', message: 'All held forks released. Total ordering constraint enforced.', type: 'success' },
+      { time: '00:01.50', message: 'P1 acquired F1. P2 contends for F1 first (F1 < F2) and blocks.', type: 'normal' },
+      { time: '00:01.70', message: 'F2 remains FREE! P3 acquired F2 & F3 and entered Critical Section (EATING).', type: 'success' },
+      { time: '00:03.00', message: 'P3 finished eating, released F2 & F3.', type: 'normal' },
+      { time: '00:03.20', message: 'P4 acquired F3 & F4 and entered Critical Section (EATING).', type: 'success' },
+      { time: '00:04.50', message: 'P4 released F3 & F4. P5 acquired F4 & F5, eating.', type: 'success' },
+      { time: '00:06.00', message: 'P5 released F4 & F5. P1 acquired F5, now EATING with F1 & F5.', type: 'success' },
+      { time: '00:07.50', message: 'P1 finished eating, released F1 & F5.', type: 'normal' },
+      { time: '00:07.70', message: 'P2 unblocked! Acquired F1 & F2 and entered Critical Section (EATING).', type: 'success' },
+      { time: '00:09.00', message: 'CIRCULAR WAIT BROKEN: Total ordering eliminates cyclic dependency.', type: 'success' },
+      { time: '00:09.20', message: 'SAFE STATE VERIFIED: All 5 philosophers completed execution.', type: 'success' }
+    ]
+  };
+}
 
-  // Handle simulation steps
+export default function SolutionLab() {
+  const [mode, setMode] = useState('with-fix'); // 'without-fix' | 'with-fix'
+  const [step, setStep] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+
+  // Derive all state purely from single source of truth (mode, step)
+  const currentState = useMemo(() => {
+    return calculateSolutionStep(mode, step);
+  }, [mode, step]);
+
+  const {
+    maxStep,
+    simulationState,
+    statusText,
+    philosophers,
+    forks,
+    events
+  } = currentState;
+
+  const isFinished = step >= maxStep;
+
+  // Single timer runner with proper cleanup (Never moves window viewport)
   useEffect(() => {
     if (!isRunning) return;
 
-    let timer;
-    if (step === 1) {
-      timer = setTimeout(() => {
-        // P1, P2, P3, P4 ask for their lower fork. P5 asks for F1.
-        setPhilosophers(prev => prev.map(p => {
-          if (p.id === 1) return { ...p, state: 'WAITING', forks: [1], waitsFor: 2 };
-          if (p.id === 2) return { ...p, state: 'WAITING', forks: [2], waitsFor: 3 };
-          if (p.id === 3) return { ...p, state: 'WAITING', forks: [3], waitsFor: 4 };
-          if (p.id === 4) return { ...p, state: 'WAITING', forks: [4], waitsFor: 5 };
-          if (p.id === 5) return { ...p, state: 'WAITING', forks: [], waitsFor: 1 }; // Wait without holding F5!
-          return p;
-        }));
-        setForks([
-          { id: 1, owner: 1 },
-          { id: 2, owner: 2 },
-          { id: 3, owner: 3 },
-          { id: 4, owner: 4 },
-          { id: 5, owner: null }, // F5 remains free!
-        ]);
-        addEvent('P1-P4 acquired lower fork. P5 requested F1.', 'normal');
-        addEvent('P5 blocked on F1. F5 remains FREE.', 'success');
-        setStep(2);
-      }, 1500);
-    } else if (step === 2) {
-      timer = setTimeout(() => {
-        // P4 can acquire F5
-        setPhilosophers(prev => prev.map(p => {
-          if (p.id === 4) return { ...p, state: 'EATING', forks: [4, 5], waitsFor: null };
-          return p;
-        }));
-        setForks(prev => prev.map(f => f.id === 5 ? { ...f, owner: 4 } : f));
-        addEvent('P4 acquired F5. P4 ENTERED critical section.', 'success');
-        setStep(3);
-      }, 1500);
-    } else if (step === 3) {
-      timer = setTimeout(() => {
-        // P4 finishes, releases 4 and 5. P3 can eat.
-        setPhilosophers(prev => prev.map(p => {
-          if (p.id === 4) return { ...p, state: 'THINKING', forks: [], waitsFor: null };
-          if (p.id === 3) return { ...p, state: 'EATING', forks: [3, 4], waitsFor: null };
-          return p;
-        }));
-        setForks(prev => prev.map(f => {
-          if (f.id === 5) return { ...f, owner: null };
-          if (f.id === 4) return { ...f, owner: 3 };
-          return f;
-        }));
-        addEvent('P4 finished eating, released F4 and F5.', 'normal');
-        addEvent('P3 acquired F4. P3 ENTERED critical section.', 'success');
-        setStep(4);
-      }, 1500);
-    } else if (step === 4) {
-      timer = setTimeout(() => {
-        addEvent('CIRCULAR WAIT BROKEN', 'success');
-        addEvent('SAFE STATE', 'success');
-        setIsRunning(false);
-      }, 1000);
+    if (step >= maxStep) {
+      setIsRunning(false);
+      return;
     }
 
+    const timer = setTimeout(() => {
+      setStep((current) => {
+        const next = current + 1;
+        if (next >= maxStep) {
+          setIsRunning(false);
+        }
+        return next;
+      });
+    }, 1500);
+
     return () => clearTimeout(timer);
-  }, [isRunning, step]);
+  }, [isRunning, step, maxStep]);
+
+  // Mode Selection: changes scenario without automatically starting playback
+  const handleModeChange = useCallback((newMode) => {
+    if (newMode === mode) return;
+    setIsRunning(false);
+    setMode(newMode);
+    setStep(0);
+  }, [mode]);
+
+  // Transport Bar: Play / Pause / Resume / Replay
+  const handlePrimaryAction = useCallback(() => {
+    if (isFinished) {
+      // Replay: reset to step 0 and start running immediately
+      setStep(0);
+      setIsRunning(true);
+      return;
+    }
+    if (isRunning) {
+      setIsRunning(false);
+      return;
+    }
+    // Start or Resume
+    setIsRunning(true);
+  }, [isFinished, isRunning]);
+
+  // Transport Bar: Step Forward
+  const handleStepForward = useCallback(() => {
+    setIsRunning(false);
+    setStep((prev) => Math.min(prev + 1, maxStep));
+  }, [maxStep]);
+
+  // Transport Bar: Reset
+  const handleReset = useCallback(() => {
+    setIsRunning(false);
+    setStep(0);
+  }, []);
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 flex-grow w-full space-y-8">
+    <div className="flex flex-col min-h-screen" style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)' }}>
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 flex-grow w-full space-y-6">
         
+        {/* Module Header */}
         <PageHeader 
           module="MODULE 03"
           title="🔄 Circular Wait → Prevention Lab"
           subtitle="Breaking the Cycle with Resource Ordering and Central Arbitration"
-          status={simulationState === 'safe' ? "🟢 Safe State (Dijkstra Banker) | Contention: 0.0%" : "🔴 DEADLOCK DETECTED"}
+          status={statusText}
         />
 
-        {simulationState === 'deadlock' && <ProblemRecap />}
-
-        <StrategySelector 
-          selectedStrategy={selectedStrategy} 
-          setSelectedStrategy={setSelectedStrategy} 
-        />
-
-        <div className="grid lg:grid-cols-12 gap-6">
+        {/* Main Grid: Clean top alignment without excessive empty space */}
+        <div className="grid lg:grid-cols-12 gap-6 items-stretch">
+          
+          {/* Left Column: Simulation Canvas & Contained Event Log */}
           <div className="lg:col-span-7 flex flex-col gap-6">
             <DiningTableSimulation 
-              strategy={selectedStrategy}
+              mode={mode}
+              onModeChange={handleModeChange}
+              step={step}
+              maxStep={maxStep}
+              isRunning={isRunning}
+              isFinished={isFinished}
               philosophers={philosophers}
               forks={forks}
-              onPlay={playSimulation}
-              onReset={resetSimulation}
+              onPrimaryAction={handlePrimaryAction}
+              onStepForward={handleStepForward}
+              onReset={handleReset}
               simulationState={simulationState}
             />
+            
+            {/* Event log with contained internal scrolling, never page-level scroll */}
             <EventLog events={events} />
           </div>
           
+          {/* Right Column: Mutex Matrix & Mathematical Proof */}
           <div className="lg:col-span-5 flex flex-col gap-6">
             <ThreadMutexMatrix 
               philosophers={philosophers}
-              forks={forks}
-              strategy={selectedStrategy}
+              strategy={mode === 'with-fix' ? 'resource-ordering' : 'greedy'}
             />
             <ProofPanel />
           </div>
         </div>
 
+        {/* Comparative Analysis Section */}
         <ComparisonSection />
 
       </div>

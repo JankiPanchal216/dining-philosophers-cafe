@@ -6,28 +6,65 @@
 
 @layer base {
   :root {
-    --background: #fef8f5;
-    --surface: #ffffff;
-    --primary: #a43716;
+    --bg-surface: #ffffff;
+    --bg-muted: #f5ede8;
+    --text-primary: #1c1412;
+    --text-secondary: #5a4a44;
+    --accent: #b8381a;
+    --on-accent: #ffffff;
+    --nav-bg: #2a211e;
+    --nav-text: #e8dcd6;
+    --nav-active-bg: #b8381a;
+    --nav-active-text: #ffffff;
+    --border-subtle: #e0d2ca;
+
+    /* Theme variable aliases */
+    --background: var(--bg-surface);
+    --surface: var(--bg-surface);
+    --primary: var(--accent);
     --primary-container: #c54f2c;
-    --text: #1d1b19;
-    --text-muted: #58423c;
+    --text: var(--text-primary);
+    --text-muted: var(--text-secondary);
     --error: #ba1a1a;
     --success: #006b2c;
     --secondary: #0051d5;
-    --border: #dfc0b7;
+    --border: var(--border-subtle);
+  }
+
+  [data-theme="dark"],
+  .dark {
+    --bg-surface: #1c1412;
+    --bg-muted: #2a211e;
+    --text-primary: #f5ede8;
+    --text-secondary: #c9b8b0;
+    --nav-bg: #2a211e;
+    --border-subtle: #3d3532;
+
+    /* Theme variable aliases */
+    --background: var(--bg-surface);
+    --surface: var(--bg-surface);
+    --primary: var(--accent);
+    --primary-container: #ba4724;
+    --text: var(--text-primary);
+    --text-muted: var(--text-secondary);
+    --error: #ef4444;
+    --success: #22c55e;
+    --secondary: #3b82f6;
+    --border: var(--border-subtle);
   }
 
   body {
-    background-color: var(--background);
-    color: var(--text);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
     font-family: 'Plus Jakarta Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', sans-serif;
+    color: var(--text-primary);
   }
 
   code, pre, .font-mono {
@@ -35,9 +72,222 @@
   }
 }
 
+/* Card Surface */
 .card-surface {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
   border-radius: 1rem;
+}
+
+[data-theme="dark"] .card-surface,
+.dark .card-surface {
+  background-color: var(--bg-surface);
+  border-color: #3d3532;
+}
+
+/* Navigation Safe Scrolling */
+.nav {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
+}
+
+/* Navigation Tabs */
+.nav-tab {
+  color: var(--nav-text);
+  white-space: nowrap;
+  padding: 6px 12px;
+  transition: all 0.2s ease;
+}
+
+.nav-tab.active {
+  background: var(--nav-active-bg);
+  color: var(--nav-active-text);
+}
+
+/* Mutex Matrix Table */
+.mutex-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.mutex-table th {
+  font-size: 11px;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+
+.mutex-table th,
+.mutex-table td {
+  padding: 10px 8px;
+}
+
+.order-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+/* Table Ring & Engine Overlap Fix */
+.table-ring {
+  width: 420px;
+  height: 420px;
+}
+
+.fork {
+  z-index: 2;
+}
+
+.fork-holder {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.engine-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  max-width: 55%;
+  margin: auto;
+  pointer-events: none;
+}
+
+/* Resolution Text */
+.resolution-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Coffman Condition Cards */
+.coffman-card {
+  background: var(--bg-muted);
+  border: 1px solid var(--border-subtle, #e0d2ca);
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .coffman-card,
+.dark .coffman-card {
+  border-color: #3d3532;
+}
+
+.coffman-card h3 {
+  color: var(--text-primary);
+}
+
+.coffman-card p {
+  color: var(--text-secondary);
+}
+
+.coffman-card.active-subtle {
+  border-left: 4px solid var(--accent);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+.coffman-card.active-circular {
+  border-left: 4px solid #ef4444;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+}
+
+.coffman-card.active-circular h3 {
+  color: #dc2626;
+}
+
+[data-theme="dark"] .coffman-card.active-circular h3,
+.dark .coffman-card.active-circular h3 {
+  color: #f87171;
+}
+
+/* Explore Solutions Button */
+.btn-explore {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Speed Toggle */
+.speed-toggle {
+  background: var(--nav-bg);
+}
+
+.speed-toggle button {
+  color: var(--nav-text);
+}
+
+.speed-toggle button.active {
+  background: #f5ede8;
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .speed-toggle button.active,
+.dark .speed-toggle button.active {
+  background: #3d2f2a;
+  color: #f5ede8;
+}
+
+/* Custom Scrollbars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Cycle Marching Animation */
+@keyframes cycleMarch {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-cycle-march {
+  animation: cycleMarch 1.2s linear infinite;
+}
+
+/* Table Deadlock Shake Animation */
+@keyframes deadlockShake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-3px, 2px); }
+  40% { transform: translate(3px, -2px); }
+  60% { transform: translate(-2px, -2px); }
+  80% { transform: translate(2px, 2px); }
+}
+
+.animate-deadlock-shake {
+  animation: deadlockShake 0.45s ease-in-out;
+}
+
+/* Accessibility: Prefers Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-cycle-march,
+  .animate-deadlock-shake,
+  .animate-spin-slow,
+  .animate-pulse,
+  .animate-ping {
+    animation: none !important;
+  }
 }
