@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Outer ring representing the circular dining table -->
+  <circle cx="32" cy="32" r="29" fill="#fef8f5" stroke="#a43716" stroke-width="2.5" />
+  
+  <!-- Inner table plate -->
+  <circle cx="32" cy="32" r="19" fill="#ffffff" stroke="#dfc0b7" stroke-width="1.5" />
+  <circle cx="32" cy="32" r="12" fill="#fdf2ee" stroke="#c54f2c" stroke-width="1" stroke-dasharray="2 2" />
+
+  <!-- 5 Nodes around the circular table representing 5 Philosophers / Mutexes -->
+  <!-- P1 top -->
+  <circle cx="32" cy="6" r="4.5" fill="#a43716" stroke="#ffffff" stroke-width="1.5" />
+  <!-- P2 top right -->
+  <circle cx="56.7" cy="24" r="4.5" fill="#a43716" stroke="#ffffff" stroke-width="1.5" />
+  <!-- P3 bottom right -->
+  <circle cx="47.3" cy="53" r="4.5" fill="#a43716" stroke="#ffffff" stroke-width="1.5" />
+  <!-- P4 bottom left -->
+  <circle cx="16.7" cy="53" r="4.5" fill="#a43716" stroke="#ffffff" stroke-width="1.5" />
+  <!-- P5 top left -->
+  <circle cx="7.3" cy="24" r="4.5" fill="#a43716" stroke="#ffffff" stroke-width="1.5" />
+
+  <!-- Center icon: Crossed fork & spoon/lock concurrency symbol -->
+  <!-- Left Fork -->
+  <path d="M26 23 L26 29 C26 31 28 32 30 32 L30 42 M24 23 L24 28 M28 23 L28 28" stroke="#a43716" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Right Knife / Mutex key -->
+  <path d="M38 23 C36 26 36 29 36 32 L36 42 M38 23 C38 28 36 30 34 32" stroke="#58423c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Concurrency Synchronization spark in center -->
+  <circle cx="32" cy="32" r="2.5" fill="#006b2c" />
+</svg>
