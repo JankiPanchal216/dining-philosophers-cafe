@@ -24,7 +24,7 @@ function Banner({ snap, lab }) {
     text = lab.id === 'naive' ? 'Running… watch each philosopher grab a fork.' : 'Running… watch P1’s hunger timer.';
   }
   return (
-    <div role="status" className="rounded-xl px-4 py-3 text-sm font-semibold text-white" style={{ background: `var(--tone-${tone})` }}>
+    <div role="status" className="rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-sm font-semibold text-white leading-snug break-words shadow-sm" style={{ background: `var(--tone-${tone})` }}>
       {text}
     </div>
   );
@@ -61,25 +61,25 @@ function Lab({ lab }) {
 
   if (!snap) return null;
   return (
-    <div className="mx-auto max-w-[1400px] p-4 lg:p-6">
-      <header className="mb-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-extrabold">{lab.title}</h1>
+    <div className="mx-auto max-w-[1400px] px-3 py-3 sm:px-4 sm:py-4 lg:p-6">
+      <header className="mb-3 sm:mb-4">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">{lab.title}</h1>
           <span className="rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white" style={{ background: lab.kind === 'problem' ? 'var(--tone-bad)' : 'var(--tone-eating)' }}>
             {lab.kind}
           </span>
           {lab.breaks && <span className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs font-semibold">Breaks: {lab.breaks}</span>}
           {lab.uses && <span className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs font-semibold">{lab.uses}</span>}
         </div>
-        <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-sub">{lab.summary}</p>
+        <p className="mt-1.5 sm:mt-2 max-w-3xl text-sm sm:text-[15px] leading-relaxed text-sub">{lab.summary}</p>
       </header>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid gap-3 sm:gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <section className="min-w-0 space-y-3">
           <Banner snap={snap} lab={lab} />
           <Controls running={running} toggle={toggle} reset={reset} speed={speed} setSpeed={setSpeed} time={snap.t} />
-          <div className="rounded-2xl border border-line bg-surface p-2 sm:p-3">
-            <div className="mx-auto" style={{ width: 'min(100%, max(380px, calc(100vh - 350px)))' }}>
+          <div className="rounded-2xl border border-line bg-surface p-2 sm:p-3 shadow-sm overflow-hidden">
+            <div className="mx-auto w-full max-w-[480px] xl:max-w-[calc(100vh-320px)] aspect-square flex items-center justify-center">
               <Table snap={snap} showClean={lab.strategy === 'chandy'} paused={!running} />
             </div>
           </div>

@@ -17,8 +17,6 @@ function mulberry32(seed) {
   };
 }
 
-const round50 = (ms) => Math.round(ms / 50) * 50;
-
 export function fmtTime(ms) {
   const s = ms / 1000;
   const m = Math.floor(s / 60);

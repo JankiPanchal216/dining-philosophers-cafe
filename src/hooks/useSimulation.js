@@ -36,6 +36,66 @@ export function useSimulation(strategyId) {
     return () => clearInterval(id);
   }, [running, speed]);
 
-  const toggle = useCallback(() => setRunning((r) => !r), []);
+  const wasRunningBeforeBackgroundRef = useRef(false);
+
+  // Background pause and recovery for mobile lifecycle
+  useEffect(() => {
+    let appStateListener;
+
+    const handleBackground = () => {
+      setRunning((currentRunning) => {
+        if (currentRunning) {
+          wasRunningBeforeBackgroundRef.current = true;
+          return false;
+        }
+        return false;
+      });
+    };
+
+    const handleForeground = () => {
+      if (wasRunningBeforeBackgroundRef.current) {
+        wasRunningBeforeBackgroundRef.current = false;
+        setRunning(true);
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        handleBackground();
+      } else {
+        handleForeground();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Capacitor native appStateChange listener
+    import('@capacitor/app')
+      .then(({ App }) => {
+        App.addListener('appStateChange', ({ isActive }) => {
+          if (!isActive) {
+            handleBackground();
+          } else if (!document.hidden) {
+            handleForeground();
+          }
+        }).then((handle) => {
+          appStateListener = handle;
+        });
+      })
+      .catch(() => {
+        // Fallback to web visibilitychange if native plugin unavailable
+      });
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      appStateListener?.remove?.();
+    };
+  }, []);
+
+  const toggle = useCallback(() => {
+    wasRunningBeforeBackgroundRef.current = false;
+    setRunning((r) => !r);
+  }, []);
+
   return { snap, running, speed, setSpeed, toggle, reset };
 }

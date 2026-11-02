@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Dining Philosophers Café</string>
+    <string name="title_activity_main">Dining Philosophers Café</string>
+    <string name="package_name">com.diningphilosophers.cafe</string>
+    <string name="custom_url_scheme">com.diningphilosophers.cafe</string>
+</resources>
